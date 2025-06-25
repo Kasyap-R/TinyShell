@@ -1,12 +1,13 @@
 mod builtins;
 
 use anyhow::{Context, Result};
-use builtins::{BuiltInFn, get_builtins};
+use builtins::{BuiltInCMD, BuiltInFn, get_builtins};
 use std::{
     collections::HashMap,
     env,
     io::{self, Write},
     process::Command,
+    str::FromStr,
 };
 
 // NOTE: Later we'll store data like aliases and shell variables as shell state
@@ -40,21 +41,22 @@ pub fn run() -> Result<()> {
             break;
         }
 
-        if let Some(handler) = builtins.get(cmd_name) {
+        if let Ok(cmd_type) = BuiltInCMD::from_str(cmd_name) {
+            let handler = builtins.get(&cmd_type).unwrap();
             match handler {
                 BuiltInFn::NoShellState(x) => x(&args)?,
                 BuiltInFn::MutShellState(x) => x(&mut tiny_sh, &args)?,
                 BuiltInFn::ReadShellState(x) => x(&tiny_sh, &args)?,
             };
             continue;
+        } else {
+            let result = Command::new(cmd_name)
+                .args(args)
+                .output()
+                .context("Failed to execute user command")?;
+
+            println!("{}", String::from_utf8_lossy(&result.stdout));
         }
-
-        let result = Command::new(cmd_name)
-            .args(args)
-            .output()
-            .context("Failed to execute user command")?;
-
-        println!("{}", String::from_utf8_lossy(&result.stdout));
     }
     Ok(())
 }
