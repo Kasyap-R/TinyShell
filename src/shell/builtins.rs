@@ -3,6 +3,8 @@ use std::{collections::HashMap, env, fmt::Display, str::FromStr};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+use crate::shell::cmd_validation::is_external_cmd;
+
 use super::TinySh;
 
 #[derive(Debug, PartialEq, Hash, Eq, EnumIter)]
@@ -41,6 +43,15 @@ impl Display for BuiltInCMD {
         }
 
         write!(f, "{}", cmd_string)
+    }
+}
+
+impl BuiltInCMD {
+    pub fn is_builtin(cmd_name: &str) -> Option<Self> {
+        match Self::from_str(cmd_name) {
+            Ok(cmd_type) => Some(cmd_type),
+            Err(_) => None,
+        }
     }
 }
 
@@ -86,11 +97,16 @@ pub fn export(tiny_sh: &mut TinySh, args: &[&str]) -> Result<()> {
 
 pub fn cmd_type(args: &[&str]) -> Result<()> {
     assert_eq!(args.len(), 1);
+
     if let Ok(_) = BuiltInCMD::from_str(args[0]) {
         println!("{} is a shell builtin", args[0]);
-    } else {
+        return Ok(());
+    } else if is_external_cmd(args[0])? {
         println!("{} is an external command", args[0]);
+    } else {
+        println!("{} not found", args[0]);
     }
+
     Ok(())
 }
 
